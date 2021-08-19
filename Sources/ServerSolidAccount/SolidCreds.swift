@@ -31,7 +31,6 @@ public protocol SolidCredsConfigurable {
 
 public class SolidCreds : Account {
     enum SolidCredsError: Swift.Error {
-        case noCodeTokenResponse
         case noCodeParameters
         case failedTokenRequest
         case noSelf
@@ -40,6 +39,7 @@ public class SolidCreds : Account {
         case noJWK
         case noConfiguration
         case noAccessToken
+        case noRefreshToken
     }
     
     private var tokenRequest:TokenRequest<JWK_RSA>!
@@ -49,12 +49,12 @@ public class SolidCreds : Account {
 
     struct JsonCoding: Codable {
         let accessToken: String?
-        let codeTokenResponse:TokenResponse?
+        let refreshToken:String?
         let codeParameters: CodeParameters?
     }
     
     public var accessToken: String!
-    var codeTokenResponse:TokenResponse!
+    var refreshToken: String!
     var codeParameters: CodeParameters!
         
     public var owningAccountsNeedCloudFolderName: Bool {
@@ -162,14 +162,15 @@ public class SolidCreds : Account {
             assert(false)
         }
         
-        result.codeTokenResponse = jsonCoding.codeTokenResponse
         result.codeParameters = jsonCoding.codeParameters
+        result.refreshToken = jsonCoding.refreshToken
+        result.accessToken = jsonCoding.accessToken
         
         return result
     }
     
     public func toJSON() -> String? {
-        let jsonCoding = JsonCoding(accessToken: accessToken, codeTokenResponse: codeTokenResponse, codeParameters: codeParameters)
+        let jsonCoding = JsonCoding(accessToken: accessToken, refreshToken: refreshToken, codeParameters: codeParameters)
         
         let data: Data
         do {
@@ -229,13 +230,13 @@ public class SolidCreds : Account {
                 
             case .success(let response):
                 guard let accessToken = response.access_token,
-                    let _ = response.refresh_token else {
+                    let refreshToken = response.refresh_token else {
                     completion(SolidCredsError.failedTokenRequest)
                     return
                 }
                 
                 self.accessToken = accessToken
-                self.codeTokenResponse = response
+                self.refreshToken = refreshToken
                 
                 guard let delegate = self.delegate else {
                     Log.warning("No SolidCreds delegate.")
@@ -257,8 +258,8 @@ public class SolidCreds : Account {
         assert(newerAccount is SolidCreds, "Wrong other type of creds!")
         let newerCreds = newerAccount as! SolidCreds
         
-        if newerCreds.codeTokenResponse != nil {
-            self.codeTokenResponse = newerCreds.codeTokenResponse
+        if newerCreds.refreshToken != nil {
+            self.refreshToken = newerCreds.refreshToken
         }
         
         if newerCreds.codeParameters != nil {
@@ -270,19 +271,15 @@ public class SolidCreds : Account {
     
     // Use the refresh token to generate a new access token.
     // If error is nil when the completion handler is called, then the accessToken of this object has been refreshed. Uses delegate, if one is defined, to save refreshed creds to database.
+    // This depends on `codeParameters`, and `refreshToken`.
     func refresh(completion:@escaping (Swift.Error?)->()) {
-        guard let codeTokenResponse = codeTokenResponse else {
-            completion(SolidCredsError.noCodeTokenResponse)
+        guard let refreshToken = refreshToken else {
+            completion(SolidCredsError.noRefreshToken)
             return
         }
         
         guard let codeParameters = codeParameters else {
             completion(SolidCredsError.noCodeParameters)
-            return
-        }
-
-        guard let refreshParams = codeTokenResponse.createRefreshParameters(tokenEndpoint: codeParameters.tokenEndpoint, clientId: codeParameters.clientId) else {
-            completion(SolidCredsError.failedCreatingRefreshParameters)
             return
         }
         
@@ -295,7 +292,9 @@ public class SolidCreds : Account {
             completion(SolidCredsError.noConfiguration)
             return
         }
-                
+
+        let refreshParams = RefreshParameters(tokenEndpoint: codeParameters.tokenEndpoint, refreshToken: refreshToken, clientId: codeParameters.clientId)
+        
         tokenRequest = TokenRequest(requestType: .refresh(refreshParams), jwk: jwk, privateKey: configuration.privateKey)
         tokenRequest.send(queue: .global()) { result in
             switch result {

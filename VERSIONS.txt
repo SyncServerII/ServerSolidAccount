@@ -1,4 +1,7 @@
 ServerSolidAccount
+
+Version 0.0.2 (8/18/21)
+    No longer persisting codeTokenResponse; saving refresh token instead.
     
 Version 0.0.1 (8/18/21)
     Initial version
