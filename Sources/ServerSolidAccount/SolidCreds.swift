@@ -201,6 +201,7 @@ public class SolidCreds : Account {
     }
     
     // Use the code to generate a refresh and access token if there is one.
+    // This depends on `codeParameters`. And on `jwk` and `configuration`.
     public func generateTokens(completion:@escaping (Swift.Error?)->()) {
         guard let codeParameters = codeParameters else {
             completion(SolidCredsError.noCodeParameters)
@@ -271,7 +272,7 @@ public class SolidCreds : Account {
     
     // Use the refresh token to generate a new access token.
     // If error is nil when the completion handler is called, then the accessToken of this object has been refreshed. Uses delegate, if one is defined, to save refreshed creds to database.
-    // This depends on `codeParameters`, and `refreshToken`.
+    // This depends on `codeParameters`, and `refreshToken`. And on `jwk` and `configuration`.
     func refresh(completion:@escaping (Swift.Error?)->()) {
         guard let refreshToken = refreshToken else {
             completion(SolidCredsError.noRefreshToken)
