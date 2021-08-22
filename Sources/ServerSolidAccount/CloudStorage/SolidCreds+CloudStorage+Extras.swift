@@ -70,7 +70,7 @@ extension SolidCreds {
     enum LookupResult: Equatable {
         case found
         case notFound
-        case error(Error?)
+        case error(Swift.Error)
         
         static func == (lhs: Self, rhs: Self) -> Bool {
             switch lhs {
@@ -215,7 +215,8 @@ extension SolidCreds {
         }
     }
     
-    func deleteFile(named name: String, inDirectory directory: String?, completion: @escaping (Error?) -> ()) {
+    // This can delete a directory or a file. To delete a directory, it must be empty.
+    func deleteResource(named name: String, inDirectory directory: String?, completion: @escaping (Error?) -> ()) {
         guard name.count > 0 else {
             completion(CloudStorageExtrasError.nameIsZeroLength)
             return
@@ -263,7 +264,7 @@ extension SolidCreds {
                     return
                 }
                 
-                // Not seeing a checksum in the result.
+                // Not seeing a checksum in the result. See also https://forum.solidproject.org/t/checksum-for-file-resource-stored-in-solid/4606
                 completion(.success(data: data, checkSum: ""))
 
             case .failure(let failure):
@@ -274,6 +275,26 @@ extension SolidCreds {
                 }
                 
                 completion(.failure(failure.error))
+            }
+        }
+    }
+    
+    func createDirectoryIfDoesNotExist(folderName:String,
+        completion:@escaping (Error?)->()) {
+        lookupDirectory(named: folderName) { [weak self] result in
+            guard let self = self else { return }
+
+            switch result {
+            case .found:
+                completion(nil)
+                
+            case .notFound:
+                self.createDirectory(named: folderName) { error in
+                    completion(error)
+                }
+                
+            case .error(let error):
+                completion(error)
             }
         }
     }

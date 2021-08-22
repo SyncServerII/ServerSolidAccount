@@ -60,6 +60,7 @@ public class SolidCreds : Account {
     
     // E.g., for my webid: https://crspybits.inrupt.net/profile/card#me,
     // this will be https://crspybits.inrupt.net/
+    // But I'm not sure this is fully general. See https://forum.solidproject.org/t/basic-question-about-url-to-use-when-making-a-request/4605/22
     var hostURL: URL!
         
     public var owningAccountsNeedCloudFolderName: Bool {
