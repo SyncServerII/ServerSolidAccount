@@ -1,5 +1,8 @@
 ServerSolidAccount
 
+Version 0.0.4 (8/21/21)
+    * Basic code for CloudStorage support in place.
+    
 Version 0.0.3 (8/19/21)
     * Added test cases.
 

@@ -43,7 +43,7 @@ public class SolidCreds : Account {
     }
     
     private var tokenRequest:TokenRequest<JWK_RSA>!
-    private var jwk: JWK_RSA!
+    var jwk: JWK_RSA!
     
     // The following keys are for conversion <-> JSON (e.g., to store this into a database).
 
@@ -51,11 +51,16 @@ public class SolidCreds : Account {
         let accessToken: String?
         let refreshToken:String?
         let codeParameters: CodeParameters?
+        let hostURL: URL?
     }
     
     public var accessToken: String!
     var refreshToken: String!
     var codeParameters: CodeParameters!
+    
+    // E.g., for my webid: https://crspybits.inrupt.net/profile/card#me,
+    // this will be https://crspybits.inrupt.net/
+    var hostURL: URL!
         
     public var owningAccountsNeedCloudFolderName: Bool {
         return true
@@ -72,7 +77,7 @@ public class SolidCreds : Account {
     weak var delegate:AccountDelegate?
     public var accountCreationUser:AccountCreationUser?
     
-    private var configuration: SolidCredsConfiguration!
+    var configuration: SolidCredsConfiguration!
 
     required public init?(configuration: Any? = nil, delegate:AccountDelegate?) {
         self.delegate = delegate
@@ -90,11 +95,16 @@ public class SolidCreds : Account {
     }
     
     static let codeParametersKey = "codeParameters"
+    static let accountIdKey = "accountId"
     
     public static func getProperties(fromHeaders headers:AccountHeaders) -> [String: Any] {
         var result = [String: Any]()
         
         guard let base64CodeParametersString = headers[ServerConstants.HTTPAccountDetailsKey] else {
+            return [:]
+        }
+        
+        guard let accountId = headers[ServerConstants.HTTPAccountIdKey] else {
             return [:]
         }
         
@@ -108,6 +118,7 @@ public class SolidCreds : Account {
         }
         
         result[Self.codeParametersKey] = codeParameters
+        result[Self.accountIdKey] = accountId
         
         return result
     }
@@ -124,6 +135,28 @@ public class SolidCreds : Account {
         
         creds.accountCreationUser = user
         creds.codeParameters = codeParameters
+        
+        guard let accountId = properties.properties[Self.accountIdKey] as? String else {
+            Log.error("Could not get account id")
+            return nil
+        }
+
+        guard let webid = URL(string: accountId) else {
+            Log.error("Could not create webid URL")
+            return nil
+        }
+        
+        guard let hostString = webid.host else {
+            Log.error("Could not get host string from webid URL")
+            return nil
+        }
+        
+        guard let hostURL = URL(string: "https://" + hostString) else {
+            Log.error("Could not create hostURL from host string")
+            return nil
+        }
+        
+        creds.hostURL = hostURL
 
         return creds
     }
@@ -165,12 +198,13 @@ public class SolidCreds : Account {
         result.codeParameters = jsonCoding.codeParameters
         result.refreshToken = jsonCoding.refreshToken
         result.accessToken = jsonCoding.accessToken
+        result.hostURL = jsonCoding.hostURL
         
         return result
     }
     
     public func toJSON() -> String? {
-        let jsonCoding = JsonCoding(accessToken: accessToken, refreshToken: refreshToken, codeParameters: codeParameters)
+        let jsonCoding = JsonCoding(accessToken: accessToken, refreshToken: refreshToken, codeParameters: codeParameters, hostURL: hostURL)
         
         let data: Data
         do {
