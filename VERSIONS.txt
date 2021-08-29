@@ -1,5 +1,8 @@
 ServerSolidAccount
 
+Version 0.0.5
+    * Working on test cases. Encountered issue: https://github.com/solid/node-solid-server/issues/1612
+    
 Version 0.0.4 (8/21/21)
     * Basic code for CloudStorage support in place.
     

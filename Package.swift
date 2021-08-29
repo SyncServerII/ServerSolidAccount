@@ -30,6 +30,13 @@ let package = Package(
             ]),
         .testTarget(
             name: "ServerSolidAccountTests",
-            dependencies: ["ServerSolidAccount"]),
+            dependencies: ["ServerSolidAccount"],
+            resources: [
+                .copy("Cat.jpg"),
+                .copy("Sake.png"),
+                .copy("Squidly.mov"),
+                .copy("Website.url"),
+                .copy("Example.gif")
+            ]),
     ]
 )

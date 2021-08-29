@@ -18,6 +18,7 @@ enum HttpMethod: String {
     case GET
     case DELETE
     case HEAD
+    case PUT
 }
 
 enum Header: String {
@@ -47,23 +48,27 @@ struct DebugOptions: OptionSet {
 }
 
 extension DebugResponse {
-    func debug(_ options: DebugOptions = [.data]) -> String {
+    func debug(_ options: DebugOptions = [.data], heading: String? = nil) -> String {
         var result = ""
         
         if options.contains(.data) {
             if let data = data, let dataString = String(data: data, encoding: .utf8) {
-                result += dataString
+                result += "Data: \(dataString)"
             }
         }
         
         if options.contains(.headers) {
-            result += "\(headers)"
+            result += "Headers: \(headers)"
         }
         
         if options.contains(.statusCode) {
             if let statusCode = statusCode {
-                result += "\(statusCode)"
+                result += "Status Code: \(statusCode)"
             }
+        }
+        
+        if let heading = heading, result.count > 0 {
+            result = "\(heading):\n\(result)"
         }
         
         return result
@@ -203,10 +208,11 @@ extension SolidCreds {
         }
         
         request.addValue(urlHost, forHTTPHeaderField: Header.host.rawValue)
-        
-        Log.debug("url.host: \(urlHost)")
-        Log.debug("Headers: \(String(describing:request.allHTTPHeaderFields))")
-        Log.debug("URL: \(requestURL)")
+
+        Log.debug("Request: method: \(httpMethod)")
+        Log.debug("Request: url.host: \(urlHost)")
+        Log.debug("Request: Request headers: \(String(describing:request.allHTTPHeaderFields))")
+        Log.debug("Request: URL: \(requestURL)")
 
         let session = URLSession(configuration: .default, delegate: nil, delegateQueue: nil)
         session.dataTask(with: request, completionHandler: { data, response, error in

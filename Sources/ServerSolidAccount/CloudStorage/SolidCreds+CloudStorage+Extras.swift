@@ -36,6 +36,8 @@ extension SolidCreds {
         Slug: data
     */
     func createDirectory(named name: String, completion: @escaping (Error?) -> ()) {
+        Log.debug("Request: Attempting to create directory...")
+
         guard name.count > 0 else {
             completion(CloudStorageExtrasError.nameIsZeroLength)
             return
@@ -96,6 +98,8 @@ extension SolidCreds {
     }
     
     func lookupDirectory(named name: String, completion: @escaping (LookupResult) -> ()) {
+        Log.debug("Request: Attempting to lookup directory...")
+
         guard name.count > 0 else {
             completion(.error(CloudStorageExtrasError.nameIsZeroLength))
             return
@@ -161,7 +165,8 @@ extension SolidCreds {
             .slug: name
         ]
         
-        request(path: directory, httpMethod: .POST, body: data, headers: headers) { result in
+        // I specifically need to use a `PUT` here. This lets the client have control over the URI: https://solidproject.org/TR/protocol "Clients can use PUT and PATCH requests to assign a URI to a resource. Clients can use POST requests to have the server assign a URI to a resource." (see also https://github.com/solid/node-solid-server/issues/1612).
+        request(path: directory, httpMethod: .PUT, body: data, headers: headers) { result in
             switch result {
             case .success(let success):
                 Log.debug("Success Response: \(success.debug(.all))")

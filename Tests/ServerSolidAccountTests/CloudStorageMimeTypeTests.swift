@@ -6,27 +6,78 @@
 //
 
 import XCTest
+@testable import ServerSolidAccount
+import HeliumLogger
+import ServerShared
+import ServerAccount
 
-class CloudStorageMimeTypeTests: XCTestCase {
-
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
+class CloudStorageMimeTypeTests: Common {
+    func filePath(_ file: String) -> URL {
+        let directory = TestingFile.directoryOfFile(#file)
+        return directory.appendingPathComponent(file)
+    }
+    
+    var exampleJPEG: URL { filePath("Cat.jpg") }
+    var examplePNG: URL { filePath("Sake.png") }
+    var exampleURLFile: URL { filePath("Website.url") }
+    var exampleMOV: URL { filePath("Squidly.mov") }
+    var exampleGIF: URL { filePath("Example.gif") }
+    
+    func loadData(from url: URL) throws -> Data {
+        return try Data(contentsOf: url)
     }
 
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-
-    func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-    }
-
-    func testPerformanceExample() throws {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
+    func uploadAndDownload(mimeType: MimeType, url: URL) throws {
+        solidCreds = try refreshCreds()
+        
+        let exp = expectation(description: "exp")
+        
+        let fileName = UUID().uuidString + "." + mimeType.fileNameExtension
+        let uploadData = try loadData(from: url)
+        
+        let options = CloudStorageFileNameOptions(cloudFolderName: existingDirectory, mimeType: mimeType.rawValue)
+        
+        solidCreds.uploadFile(cloudFileName:fileName, data:uploadData, options:options) { result in
+            switch result {
+            case .success:
+                self.solidCreds.downloadFile(cloudFileName:fileName, options:options) { result in
+                    switch result {
+                    case .success(data: let data, checkSum: _):
+                        XCTAssert(uploadData == data)
+                        
+                    default:
+                        XCTFail()
+                    }
+                    
+                    exp.fulfill()
+                }
+                
+            default:
+                XCTFail()
+                exp.fulfill()
+            }
         }
+        
+        waitForExpectations(timeout: 10, handler: nil)
     }
-
+    
+    func testUploadAndDownloadJPEG() throws {
+        try uploadAndDownload(mimeType: .jpeg, url: exampleJPEG)
+    }
+    
+    func testUploadAndDownloadPNG() throws {
+        try uploadAndDownload(mimeType: .png, url: examplePNG)
+    }
+    
+    func testUploadAndDownloadURL() throws {
+        try uploadAndDownload(mimeType: .url, url: exampleURLFile)
+    }
+    
+    func testUploadAndDownloadMOV() throws {
+        try uploadAndDownload(mimeType: .mov, url: exampleMOV)
+    }
+    
+    func testUploadAndDownloadGIF() throws {
+        try uploadAndDownload(mimeType: .gif, url: exampleGIF)
+    }
 }
