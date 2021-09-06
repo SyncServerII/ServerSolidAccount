@@ -21,7 +21,7 @@ extension SolidCreds : CloudStorage {
     // I don't have a check sum yet with this: https://forum.solidproject.org/t/checksum-for-file-resource-stored-in-solid/4606
     public func uploadFile(cloudFileName:String, data:Data, options:CloudStorageFileNameOptions?,
         completion:@escaping (Result<String>)->()) {
-        
+
         guard let options = options,
             let folder = options.cloudFolderName else {
             completion(.failure(SolidCredsCloudStorageError.noOptions))
@@ -33,35 +33,29 @@ extension SolidCreds : CloudStorage {
             return
         }
         
-        createDirectoryIfDoesNotExist(folderName: folder) { [weak self] error in
-            guard let self = self else { return }
+        // Don't need to create the directory first if it doesn't exist. The "PUT" we're using in the upload will do that.
 
-            if let error = error {
-                completion(.failure(error))
-                return
-            }
+        // BUT: Currently (as of 9/4/21), at least the NSS *does* allow you to overwrite an existing file. The SyncServerII protocol requires that we report an existing file, so don't allow that.
+        // TODO(https://github.com/SyncServerII/ServerSolidAccount/issues/3): Take file lookup out if the If-None-Match header implemented.
+        self.lookupFile(named: cloudFileName, inDirectory: folder) { [weak self] result in
+            guard let self = self else { return }
             
-            // Don't try to overwrite an existing file. Apparently you won't get the intended file name.
-            self.lookupFile(named: cloudFileName, inDirectory: folder) { [weak self] result in
-                guard let self = self else { return }
+            switch result {
+            case .found:
+                completion(.failure(CloudStorageError.alreadyUploaded))
                 
-                switch result {
-                case .found:
-                    completion(.failure(CloudStorageError.alreadyUploaded))
-                    
-                case .notFound:
-                    self.uploadFile(named: cloudFileName, inDirectory: folder, data: data, mimeType: mimeType) { error in
-                        if let error = error {
-                            completion(.failure(error))
-                            return
-                        }
-                        
-                        completion(.success(""))
+            case .notFound:
+                self.uploadFile(named: cloudFileName, inDirectory: folder, data: data, mimeType: mimeType) { error in
+                    if let error = error {
+                        completion(.failure(error))
+                        return
                     }
-        
-                case .error(let error):
-                    completion(.failure(error))
+                    
+                    completion(.success(""))
                 }
+    
+            case .error(let error):
+                completion(.failure(error))
             }
         }
     }

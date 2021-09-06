@@ -29,6 +29,7 @@ enum Header: String {
     case link = "Link" // Upper case "L" because response headers have it this way.
     case host
     case accept
+    case ifNoneMatch = "If-None-Match"
 }
 
 protocol DebugResponse {
@@ -82,10 +83,10 @@ extension SolidCreds {
         case noJWK
         case noConfiguration
         case noAccessToken
-        case headersAlreadyHaveAuth
-        case headersAlreadyHaveHost
+        case headersAlreadyHave(Header)
         case noHostURL
         case couldNotGetURLHost
+        case failedToRefreshAccessToken(Error)
     }
     
     /* Returns DPoP and access token headers. Format is:
@@ -157,12 +158,15 @@ extension SolidCreds {
         case failure(Failure)
     }
     
-    // The headers must not include authorization or dpop-- That will cause the request to fail.
+    // The headers must not include authorization, dpop or host: That will cause the request to fail.
     // Depends on `hostURL`.
     // Parameters:
     //  - path: appended to the hostURL, if given.
+    //  - httpMethod: The HTTP method.
     //  - body: Body data for outgoing request. Typically only used for POST's.
-    func request(path: String? = nil, httpMethod: HttpMethod, body: Data? = nil, headers: [Header: String], completion: @escaping (RequestResult) -> ()) {
+    //  - headers: HTTP request headers.
+    //  - accessTokenAutoRefresh: Whether or not to automatically refresh the access token if we get a http status 401. A refresh is only tried once. Callers typically should just use the default.
+    func request(path: String? = nil, httpMethod: HttpMethod, body: Data? = nil, headers: [Header: String], accessTokenAutoRefresh: Bool = true, completion: @escaping (RequestResult) -> ()) {
 
         guard var requestURL = hostURL else {
             completion(.failure(Failure(RequestError.noHostURL)))
@@ -175,12 +179,12 @@ extension SolidCreds {
         
         guard headers[Header.authorization] == nil,
             headers[Header.dpop] == nil else {
-            completion(.failure(Failure(RequestError.headersAlreadyHaveAuth)))
+            completion(.failure(Failure(RequestError.headersAlreadyHave(.dpop))))
             return
         }
 
         guard headers[Header.host] == nil else {
-            completion(.failure(Failure(RequestError.headersAlreadyHaveHost)))
+            completion(.failure(Failure(RequestError.headersAlreadyHave(.host))))
             return
         }
                 
@@ -215,7 +219,9 @@ extension SolidCreds {
         Log.debug("Request: URL: \(requestURL)")
 
         let session = URLSession(configuration: .default, delegate: nil, delegateQueue: nil)
-        session.dataTask(with: request, completionHandler: { data, response, error in
+        session.dataTask(with: request, completionHandler: { [weak self] data, response, error in
+            guard let self = self else { return }
+
             if let error = error {
                 completion(.failure(Failure(error)))
                 return
@@ -223,6 +229,21 @@ extension SolidCreds {
 
             guard let response = response as? HTTPURLResponse else {
                 completion(.failure(Failure(RequestError.noHTTPURLResponse, data: data)))
+                return
+            }
+            
+            // Do we need to refresh the access token?
+            if response.statusCode == 401 && accessTokenAutoRefresh {
+                self.refresh { error in
+                    if let error = error {
+                        completion(.failure(
+                            Failure(RequestError.failedToRefreshAccessToken(error), data: data, headers:response.allHeaderFields, statusCode: response.statusCode)))
+                        return
+                    }
+                    
+                    // Retry the request, but this time don't allow the access token to be refreshed.
+                    self.request(path: path, httpMethod: httpMethod, body: body, headers: headers, accessTokenAutoRefresh: false, completion: completion)
+                }
                 return
             }
             

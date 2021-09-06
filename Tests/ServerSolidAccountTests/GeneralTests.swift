@@ -8,30 +8,10 @@ import ServerShared
 // Run tests (on Linux):
 //  swift test --enable-test-discovery
 
-final class GeneralTests: Common {    
-    func testCreateDirectory() throws {
-        solidCreds = try refreshCreds()
-        
-        let exp = expectation(description: "exp")
-        
-        let newDirectory = UUID().uuidString
+// swift test --enable-test-discovery --filter ServerSolidAccountTests.GeneralTests
 
-        solidCreds.createDirectory(named: newDirectory) { error in
-            guard error == nil else {
-                XCTFail()
-                exp.fulfill()
-                return
-            }
-            
-            self.solidCreds.deleteResource(named: newDirectory, inDirectory: nil) { error in
-                XCTAssert(error == nil)
-                exp.fulfill()
-            }
-        }
-        
-        waitForExpectations(timeout: 10, handler: nil)
-    }
-    
+final class GeneralTests: Common {
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.GeneralTests/testLookupExistingDirectory
     func testLookupExistingDirectory() throws {
         solidCreds = try refreshCreds()
         
@@ -45,6 +25,7 @@ final class GeneralTests: Common {
         waitForExpectations(timeout: 10, handler: nil)
     }
     
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.GeneralTests/testLookupNonExistingDirectory
     func testLookupNonExistingDirectory() throws {
         solidCreds = try refreshCreds()
         
@@ -58,7 +39,8 @@ final class GeneralTests: Common {
         waitForExpectations(timeout: 10, handler: nil)
     }
     
-    func testUploadTextFile() throws {
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.GeneralTests/testUploadNewFile_ExistingDirectory
+    func testUploadNewFile_ExistingDirectory() throws {
         solidCreds = try refreshCreds()
         
         let exp = expectation(description: "exp")
@@ -89,6 +71,63 @@ final class GeneralTests: Common {
         waitForExpectations(timeout: 10, handler: nil)
     }
 
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.GeneralTests/testUploadNewFile_NewDirectory
+    // Upload a file to a new directory. Make sure to remove that file and the directory afterwards, to cleanup.
+    func testUploadNewFile_NewDirectory() throws {
+        solidCreds = try refreshCreds()
+        
+        let exp = expectation(description: "exp")
+        
+        let mimeType: MimeType = .text
+        
+        let fileName = UUID().uuidString + "." + mimeType.fileNameExtension
+        
+        guard let uploadData = "Hello, World!".data(using: .utf8) else {
+            XCTFail()
+            return
+        }
+        
+        let newDirectory = UUID().uuidString
+
+        solidCreds.uploadFile(named: fileName, inDirectory: newDirectory, data:uploadData, mimeType: mimeType) { error in
+            
+            guard error == nil else {
+                XCTFail()
+                exp.fulfill()
+                return
+            }
+            
+            self.solidCreds.deleteResource(named: fileName, inDirectory: newDirectory) { error in
+                XCTAssert(error == nil)
+                
+                self.solidCreds.deleteResource(named: newDirectory, inDirectory: nil) { error in
+                    XCTAssert(error == nil)
+
+                    exp.fulfill()
+                }
+            }
+        }
+        
+        waitForExpectations(timeout: 10, handler: nil)
+    }
+    
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.GeneralTests/testDeleteFile
+    /*
+    func testDeleteFile() throws {
+        solidCreds = try refreshCreds()
+        
+        let exp = expectation(description: "exp")
+        
+        solidCreds.deleteResource(named: "567714D1-BEB0-4F1E-A415-0A7285EADF6C.txt", inDirectory: nil) { error in
+            XCTAssert(error == nil)
+            exp.fulfill()
+        }
+
+        waitForExpectations(timeout: 10, handler: nil)
+    }
+    */
+    
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.GeneralTests/testLookupExistingFile
     func testLookupExistingFile() throws {
         solidCreds = try refreshCreds()
         
@@ -102,6 +141,7 @@ final class GeneralTests: Common {
         waitForExpectations(timeout: 10, handler: nil)
     }
     
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.GeneralTests/testLookupNonExistingFile
     func testLookupNonExistingFile() throws {
         solidCreds = try refreshCreds()
         
@@ -115,6 +155,7 @@ final class GeneralTests: Common {
         waitForExpectations(timeout: 10, handler: nil)
     }
     
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.GeneralTests/testDownloadExistingFile
     func testDownloadExistingFile() throws {
         solidCreds = try refreshCreds()
         
@@ -139,6 +180,7 @@ final class GeneralTests: Common {
         waitForExpectations(timeout: 10, handler: nil)
     }
     
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.GeneralTests/testDownloadNonExistentFile
     func testDownloadNonExistentFile() throws {
         solidCreds = try refreshCreds()
         

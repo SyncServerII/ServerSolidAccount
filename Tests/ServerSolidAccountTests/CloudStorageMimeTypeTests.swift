@@ -58,25 +58,31 @@ class CloudStorageMimeTypeTests: Common {
             }
         }
         
-        waitForExpectations(timeout: 10, handler: nil)
+        waitForExpectations(timeout: 20, handler: nil)
     }
-    
+
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageMimeTypeTests/testUploadAndDownloadJPEG
     func testUploadAndDownloadJPEG() throws {
         try uploadAndDownload(mimeType: .jpeg, url: exampleJPEG)
     }
-    
+
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageMimeTypeTests/testUploadAndDownloadPNG
     func testUploadAndDownloadPNG() throws {
         try uploadAndDownload(mimeType: .png, url: examplePNG)
     }
-    
+
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageMimeTypeTests/testUploadAndDownloadURL
     func testUploadAndDownloadURL() throws {
         try uploadAndDownload(mimeType: .url, url: exampleURLFile)
     }
-    
+
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageMimeTypeTests/testUploadAndDownloadMOV
+    // This seems to take considerable time to upload and/or download. I had to bump up the time out to 20s. This is with https://crspybits.solidcommunity.net, NSS, v5.6.8
     func testUploadAndDownloadMOV() throws {
         try uploadAndDownload(mimeType: .mov, url: exampleMOV)
     }
     
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageMimeTypeTests/testUploadAndDownloadGIF
     func testUploadAndDownloadGIF() throws {
         try uploadAndDownload(mimeType: .gif, url: exampleGIF)
     }

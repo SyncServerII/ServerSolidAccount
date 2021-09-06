@@ -24,43 +24,6 @@ extension SolidCreds {
         case noDataInDownload
     }
     
-    /* Create a directory (aka. container). Doesn't check to see if the directory exists already. Make sure it doesn't or, apparently, you will not get the directory naming you expect.
-    
-        See https://github.com/solid/solid-spec/blob/master/api-rest.md#creating-documents-files
-        Example:
-        
-        POST / HTTP/1.1
-        Host: example.org
-        Content-Type: text/turtle
-        Link: <http://www.w3.org/ns/ldp#BasicContainer>; rel="type"
-        Slug: data
-    */
-    func createDirectory(named name: String, completion: @escaping (Error?) -> ()) {
-        Log.debug("Request: Attempting to create directory...")
-
-        guard name.count > 0 else {
-            completion(CloudStorageExtrasError.nameIsZeroLength)
-            return
-        }
-        
-        let headers:  [Header: String] = [
-            .contentType: "text/turtle",
-            .link: basicContainer,
-            .slug: name
-        ]
-        
-        request(httpMethod: .POST, headers: headers) { result in
-            switch result {
-            case .success(let success):
-                Log.debug("Success Response: \(success.debug(.all))")
-                completion(nil)
-            case .failure(let failure):
-                Log.debug("Failure Response: \(failure.debug(.all)); error: \(failure.error)")
-                completion(failure.error)
-            }
-        }
-    }
-    
     /* Lookup a directory (container).
         https://www.w3.org/TR/ldp-primer/#filelookup
         
@@ -141,17 +104,20 @@ extension SolidCreds {
         }
     }
     
-    /* Upload a file. Assumes the directory exists. And that the named file doesn't already exist. Make sure to supply an extension (e.g., .txt) on the name or the Solid server seems to just give you one it likes.
+    private func filePath(name: String, directory: String?) -> String {
+        var path = ""
 
-        See https://github.com/solid/solid-spec/blob/master/api-rest.md#creating-documents-files
+        if let directory = directory {
+            path = "\(directory)/"
+        }
         
-        Example:
+        path += name
         
-            POST / HTTP/1.1
-            Host: example.org
-            Content-Type: text/turtle
-            Link: <http://www.w3.org/ns/ldp#Resource>; rel="type"
-            Slug: test
+        return path
+    }
+    
+    /* Upload a file. Creates the directory if needed, if one is given. See https://github.com/solid/solid-spec/blob/master/api-rest.md#creating-documents-files
+    Currently, at least for the NSS v5.6.8, the If-None-Match header (see https://solidproject.org/TR/protocol#writing-resources) sis *not* supported. See https://github.com/solid/node-solid-server/issues/1431. So make sure to check to see if the file exists already if you want to make sure not to overwrite.
     */
     func uploadFile(named name: String, inDirectory directory: String?, data:Data, mimeType: MimeType, completion: @escaping (Error?) -> ()) {
         guard name.count > 0 else {
@@ -159,14 +125,19 @@ extension SolidCreds {
             return
         }
         
+        /* It was a little confusing to me initially, but PUT requests don't use the "Slug" header; the directory/file name is just in the URI.
+        https://solidproject.org/TR/protocol#writing-resources
+        "When a successful PUT or PATCH request creates a resource, the server MUST use the effective request URI to assign the URI to that resource."
+        */
         let headers:  [Header: String] = [
             .contentType: mimeType.rawValue,
-            .link: resource,
-            .slug: name
+            .link: resource
         ]
         
+        let path = filePath(name: name, directory: directory)
+        
         // I specifically need to use a `PUT` here. This lets the client have control over the URI: https://solidproject.org/TR/protocol "Clients can use PUT and PATCH requests to assign a URI to a resource. Clients can use POST requests to have the server assign a URI to a resource." (see also https://github.com/solid/node-solid-server/issues/1612).
-        request(path: directory, httpMethod: .PUT, body: data, headers: headers) { result in
+        request(path: path, httpMethod: .PUT, body: data, headers: headers) { result in
             switch result {
             case .success(let success):
                 Log.debug("Success Response: \(success.debug(.all))")
@@ -184,16 +155,13 @@ extension SolidCreds {
             return
         }
         
-        var filePath = name
-        if let directory = directory {
-            filePath = directory + "/" + name
-        }
+        let path = filePath(name: name, directory: directory)
         
         let headers: [Header: String] = [:]
         
         // HEAD: Retrieve meta data: https://www.w3.org/TR/ldp-primer/#filelookup
 
-        request(path: filePath, httpMethod: .HEAD, headers: headers) { result in
+        request(path: path, httpMethod: .HEAD, headers: headers) { result in
             switch result {
             case .success(let success):
                 Log.debug("Success Response: \(success.debug(.all))")
@@ -227,14 +195,11 @@ extension SolidCreds {
             return
         }
         
-        var filePath = name
-        if let directory = directory {
-            filePath = directory + "/" + name
-        }
+        let path = filePath(name: name, directory: directory)
         
         let headers: [Header: String] = [:]
 
-        request(path: filePath, httpMethod: .DELETE, headers: headers) { result in
+        request(path: path, httpMethod: .DELETE, headers: headers) { result in
             switch result {
             case .success(let success):
                 Log.debug("Success Response: \(success.debug(.all))")
@@ -253,14 +218,11 @@ extension SolidCreds {
             return
         }
         
-        var filePath = name
-        if let directory = directory {
-            filePath = directory + "/" + name
-        }
+        let path = filePath(name: name, directory: directory)
         
         let headers: [Header: String] = [:]
 
-        request(path: filePath, httpMethod: .GET, headers: headers) { result in
+        request(path: path, httpMethod: .GET, headers: headers) { result in
             switch result {
             case .success(let success):
                 Log.debug("Success Response: \(success.debug(.all))")
@@ -280,26 +242,6 @@ extension SolidCreds {
                 }
                 
                 completion(.failure(failure.error))
-            }
-        }
-    }
-    
-    func createDirectoryIfDoesNotExist(folderName:String,
-        completion:@escaping (Error?)->()) {
-        lookupDirectory(named: folderName) { [weak self] result in
-            guard let self = self else { return }
-
-            switch result {
-            case .found:
-                completion(nil)
-                
-            case .notFound:
-                self.createDirectory(named: folderName) { error in
-                    completion(error)
-                }
-                
-            case .error(let error):
-                completion(error)
             }
         }
     }

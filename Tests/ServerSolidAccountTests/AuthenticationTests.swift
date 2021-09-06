@@ -9,6 +9,10 @@ import XCTest
 @testable import ServerSolidAccount
 import HeliumLogger
 
+// swift test --enable-test-discovery --filter ServerSolidAccountTests.AuthenticationTests/testGenerateTokens
+
+// swift test --enable-test-discovery --filter ServerSolidAccountTests.AuthenticationTests/testRefresh
+
 class AuthenticationTests: Common {    
     // To test this, you need recent (unused?) codeParametersBase64. I think this invalidates the current refresh token.
     func testGenerateTokens() {
@@ -44,5 +48,27 @@ class AuthenticationTests: Common {
     */
     func testRefresh() throws {
         _ = try refreshCreds()
+    }
+
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.AuthenticationTests/testAutomaticAccessTokenRefresh
+
+    // Don't do an overt `refreshCreds` in here. This is intended to use an expired access token, detect that the access token has expired, and automatically refresh that access token.
+    // Testing: With NSS v5.6.8, from a token refresh carried out around 10am 9/5/21 Mountain, I get an access token with an expiry of 2021-09-19 15:46:17 +0000. It looks like access tokens expire in 2 weeks.
+    // TODO(https://github.com/SyncServerII/ServerSolidAccount/issues/2): Test this after this access token has expired.
+    func testAutomaticAccessTokenRefresh() throws {
+        guard let solidCreds = solidCreds else {
+            throw CommonError.noSolidCreds
+        }
+        
+        solidCreds.accessToken = expiredAccessToken
+        
+        let exp = expectation(description: "exp")
+
+        solidCreds.lookupDirectory(named: existingDirectory) { result in
+            XCTAssert(result == .found)
+            exp.fulfill()
+        }
+        
+        waitForExpectations(timeout: 10, handler: nil)
     }
 }

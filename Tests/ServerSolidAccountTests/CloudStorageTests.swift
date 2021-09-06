@@ -11,7 +11,10 @@ import HeliumLogger
 import ServerShared
 import ServerAccount
 
+// swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests
+
 class CloudStorageTests: Common {
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testUploadFile_NewDirectory
     func testUploadFile_NewDirectory() throws {
         solidCreds = try refreshCreds()
         
@@ -59,7 +62,8 @@ class CloudStorageTests: Common {
         
         waitForExpectations(timeout: 10, handler: nil)
     }
-    
+
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testUploadFile_NewFile_ExistingDirectory
     func testUploadFile_NewFile_ExistingDirectory() throws {
         solidCreds = try refreshCreds()
         
@@ -97,7 +101,8 @@ class CloudStorageTests: Common {
         
         waitForExpectations(timeout: 10, handler: nil)
     }
-    
+
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testUploadFile_ExistingFile_ExistingDirectory
     func testUploadFile_ExistingFile_ExistingDirectory() throws {
         solidCreds = try refreshCreds()
         
@@ -139,6 +144,7 @@ class CloudStorageTests: Common {
         waitForExpectations(timeout: 10, handler: nil)
     }
 
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testDownloadFile_FileExists
     func testDownloadFile_FileExists() throws {
         solidCreds = try refreshCreds()
 
@@ -147,7 +153,7 @@ class CloudStorageTests: Common {
         
         let options = CloudStorageFileNameOptions(cloudFolderName:existingDirectory, mimeType: mimeType.rawValue)
 
-        guard let uploadData = "Hello, World!".data(using: .utf8) else {
+        guard let uploadData = "Hello, World v2!".data(using: .utf8) else {
             XCTFail()
             return
         }
@@ -169,6 +175,7 @@ class CloudStorageTests: Common {
         waitForExpectations(timeout: 10, handler: nil)
     }
 
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testDownloadFile_FileDoesNotExist
     func testDownloadFile_FileDoesNotExist() throws {
         solidCreds = try refreshCreds()
 
@@ -192,7 +199,8 @@ class CloudStorageTests: Common {
         
         waitForExpectations(timeout: 10, handler: nil)
     }
-    
+
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testDeleteFile_FileExists
     func testDeleteFile_FileExists() throws {
         solidCreds = try refreshCreds()
 
@@ -230,7 +238,8 @@ class CloudStorageTests: Common {
         
         waitForExpectations(timeout: 10, handler: nil)
     }
-    
+
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testDeleteFile_FileDoesNotExist
     func testDeleteFile_FileDoesNotExist() throws {
         solidCreds = try refreshCreds()
 
@@ -252,7 +261,8 @@ class CloudStorageTests: Common {
             
         waitForExpectations(timeout: 10, handler: nil)
     }
-    
+
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testLookupFile_FileExists
     func testLookupFile_FileExists() throws {
         solidCreds = try refreshCreds()
 
@@ -274,7 +284,8 @@ class CloudStorageTests: Common {
         
         waitForExpectations(timeout: 10, handler: nil)
     }
-    
+
+    // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testLookupFile_FileDoesNotExist
     func testLookupFile_FileDoesNotExist() throws {
         solidCreds = try refreshCreds()
 

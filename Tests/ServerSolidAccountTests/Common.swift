@@ -32,16 +32,24 @@ struct ConfigFile: Codable, SolidCredsConfigurable {
     let codeParametersBase64: String
     let refreshToken: String
     let hostURL: URL
+    let expiredAccessToken: String
 }
+
+// Bootstrapping:
+// 1) Run Neebla, and sign in.
+//   Copy codeParametersBase64 and hostURL into Config.json
+// 2) Run AuthenticationTests.testGenerateTokens
+//   Copy refresh token into Config.json
 
 let configURL = URL(fileURLWithPath: "/root/Apps/Private/ServerSolidAccount/Config.json")
 
 class Common: XCTestCase {
     let existingDirectory = "NewDirectory"
     let nonExistingDirectory = "NonExistingDirectory"
-    let existingFile = "8D280443-F893-471F-AA40-08AC399AB2AE.txt"
-    
+    let existingFile = "2CD072D2-8321-434B-9CFF-FDBE0CEFA7DA.txt"
+
     var solidCreds: SolidCreds!
+    var expiredAccessToken: String!
     
     override func setUpWithError() throws {
         HeliumLogger.use(.debug)
@@ -64,6 +72,7 @@ class Common: XCTestCase {
         solidCreds.codeParameters = codeParameters
         solidCreds.refreshToken = configFile.refreshToken
         solidCreds.hostURL = configFile.hostURL
+        expiredAccessToken = configFile.expiredAccessToken
     }
     
     func refreshCreds() throws -> SolidCreds {
