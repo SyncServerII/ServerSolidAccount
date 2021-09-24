@@ -161,7 +161,7 @@ final class GeneralTests: Common {
         
         let exp = expectation(description: "exp")
 
-        solidCreds.downloadFile(named: existingFile, inDirectory: existingDirectory) { result in
+        solidCreds.downloadFile(named: "1.png" /*existingFile */, inDirectory: nil /* existingDirectory*/) { result in
             switch result {
             case .success:
                 break

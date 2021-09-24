@@ -9,6 +9,7 @@ import XCTest
 @testable import ServerSolidAccount
 import SolidAuthSwiftTools
 import HeliumLogger
+import LoggerAPI
 
 public struct TestingFile {
     // A bit of a hack from
@@ -29,15 +30,13 @@ enum CommonError: Error {
 
 struct ConfigFile: Codable, SolidCredsConfigurable {
     let solidCredsConfiguration: SolidCredsConfiguration?
-    let codeParametersBase64: String
-    let refreshToken: String
-    let hostURL: URL
+    let serverParametersBase64: String
     let expiredAccessToken: String
 }
 
 // Bootstrapping:
 // 1) Run Neebla, and sign in.
-//   Copy codeParametersBase64 and hostURL into Config.json
+//   Copy serverParametersBase64 into Config.json
 // 2) Run AuthenticationTests.testGenerateTokens
 //   Copy refresh token into Config.json
 
@@ -51,28 +50,67 @@ class Common: XCTestCase {
     var solidCreds: SolidCreds!
     var expiredAccessToken: String!
     
+    static let solidCredsParamsKey = "SolidCredsParamsKey"
+    static let paramsFile = "/tmp/SolidCredsParams"
+    
+    var solidCredsParams: SolidCreds.SolidCredsParams? {
+        get {
+            let url = URL(fileURLWithPath: Self.paramsFile)
+            guard let data = try? Data(contentsOf: url) else {
+                return nil
+            }
+            
+            do {
+                return try JSONDecoder().decode(SolidCreds.SolidCredsParams.self, from: data)
+            } catch let error {
+                Log.error("Could not decode SolidCredsParams: \(error)")
+                return nil
+            }
+        }
+        
+        set {
+            guard let newValue = newValue else {
+                UserDefaults.standard.set(nil, forKey: Self.solidCredsParamsKey)
+                return
+            }
+            
+            do {
+                let data = try JSONEncoder().encode(newValue)
+                let url = URL(fileURLWithPath: Self.paramsFile)
+                try data.write(to: url)
+            } catch let error {
+                Log.error("Failed encoding SolidCredsParams: \(error)")
+                return
+            }
+        }
+    }
+    
     override func setUpWithError() throws {
         HeliumLogger.use(.debug)
         try setupSolidCreds()
     }
 
     func setupSolidCreds() throws {
+        let serverParameters: ServerParameters
         let configFile:ConfigFile
-        let codeParameters: CodeParameters
         
         let data = try Data(contentsOf: configURL)
         configFile = try JSONDecoder().decode(ConfigFile.self, from: data)
-        codeParameters = try CodeParameters.from(fromBase64: configFile.codeParametersBase64)
+        serverParameters = try ServerParameters.from(fromBase64: configFile.serverParametersBase64)
 
         guard let _ = configFile.solidCredsConfiguration else {
             throw CommonError.noSolidCredsConfiguration
         }
         
         solidCreds = SolidCreds(configuration: configFile, delegate:nil)
-        solidCreds.codeParameters = codeParameters
-        solidCreds.refreshToken = configFile.refreshToken
-        solidCreds.hostURL = configFile.hostURL
+        solidCreds.serverParameters = serverParameters
         expiredAccessToken = configFile.expiredAccessToken
+        
+        if let solidCredsParams = solidCredsParams {
+            if serverParameters.refresh.refreshToken == solidCredsParams.serverParameters?.refresh.refreshToken {
+                solidCreds.refreshToken = solidCredsParams.refreshToken
+            }
+        }
     }
     
     func refreshCreds() throws -> SolidCreds {
@@ -97,8 +135,11 @@ class Common: XCTestCase {
                 exp.fulfill()
                 return
             }
+
+            self.solidCredsParams = SolidCreds.SolidCredsParams(accessToken: solidCreds.accessToken, serverParameters: solidCreds.serverParameters, accountId: solidCreds.accountId, refreshToken: solidCreds.refreshToken)
             
             result = solidCreds
+            
             exp.fulfill()
         }
         

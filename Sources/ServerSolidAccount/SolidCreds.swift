@@ -31,7 +31,7 @@ public protocol SolidCredsConfigurable {
 
 public class SolidCreds : Account {
     enum SolidCredsError: Swift.Error {
-        case noCodeParameters
+        case noServerParameters
         case failedTokenRequest
         case noSelf
         case errorSavingCredsToDatabase
@@ -47,22 +47,22 @@ public class SolidCreds : Account {
     
     // The following keys are for conversion <-> JSON (e.g., to store this into a database).
 
-    struct JsonCoding: Codable {
+    struct SolidCredsParams: Codable {
         let accessToken: String?
-        let refreshToken:String?
-        let codeParameters: CodeParameters?
-        let hostURL: URL?
+        let serverParameters: ServerParameters?
+        let accountId: String?
+        
+        // This is non-nil only if the refresh token changed after use in a refresh operation. If nil, use the refresh token in serverParamters.refresh
+        let refreshToken: String?
     }
     
     public var accessToken: String!
-    var refreshToken: String!
-    var codeParameters: CodeParameters!
+    var serverParameters: ServerParameters?
+    var accountId: String?
     
-    // E.g., for my webid: https://crspybits.inrupt.net/profile/card#me,
-    // this will be https://crspybits.inrupt.net/
-    // But I'm not sure this is fully general. See https://forum.solidproject.org/t/basic-question-about-url-to-use-when-making-a-request/4605/22
-    var hostURL: URL!
-        
+    // Making a separate `refreshToken` because some Solid pod issuers update the refresh token after every /token endpoint request to create a new refresh token.
+    public var refreshToken: String!
+    
     public var owningAccountsNeedCloudFolderName: Bool {
         return true
     }
@@ -77,11 +77,11 @@ public class SolidCreds : Account {
 
     weak var delegate:AccountDelegate?
     public var accountCreationUser:AccountCreationUser?
+    var configuration:SolidCredsConfiguration!
     
-    var configuration: SolidCredsConfiguration!
-
     required public init?(configuration: Any? = nil, delegate:AccountDelegate?) {
         self.delegate = delegate
+        
         guard let configuration = configuration as? SolidCredsConfigurable else {
             return nil
         }
@@ -95,13 +95,13 @@ public class SolidCreds : Account {
         }
     }
     
-    static let codeParametersKey = "codeParameters"
+    static let serverParametersKey = "serverParameters"
     static let accountIdKey = "accountId"
     
     public static func getProperties(fromHeaders headers:AccountHeaders) -> [String: Any] {
         var result = [String: Any]()
         
-        guard let base64CodeParametersString = headers[ServerConstants.HTTPAccountDetailsKey] else {
+        guard let base64ServerParametersString = headers[ServerConstants.HTTPAccountDetailsKey] else {
             return [:]
         }
         
@@ -109,18 +109,18 @@ public class SolidCreds : Account {
             return [:]
         }
         
-        let codeParameters: CodeParameters
+        let serverParameters: ServerParameters
         
         do {
-            codeParameters = try CodeParameters.from(fromBase64: base64CodeParametersString)
+            serverParameters = try ServerParameters.from(fromBase64: base64ServerParametersString)
         } catch let error {
             Log.error("getProperties: failed: \(error)")
             return [:]
         }
         
-        result[Self.codeParametersKey] = codeParameters
+        result[Self.serverParametersKey] = serverParameters
         result[Self.accountIdKey] = accountId
-        
+       
         return result
     }
     
@@ -129,35 +129,21 @@ public class SolidCreds : Account {
             return nil
         }
         
-        guard let codeParameters = properties.properties[Self.codeParametersKey] as? CodeParameters else {
-            Log.error("Could not get CodeParameters")
+        guard let serverParameters = properties.properties[Self.serverParametersKey] as? ServerParameters else {
+            Log.error("Could not get ServerParameters")
             return nil
         }
         
         creds.accountCreationUser = user
-        creds.codeParameters = codeParameters
         
         guard let accountId = properties.properties[Self.accountIdKey] as? String else {
             Log.error("Could not get account id")
             return nil
         }
-
-        guard let webid = URL(string: accountId) else {
-            Log.error("Could not create webid URL")
-            return nil
-        }
         
-        guard let hostString = webid.host else {
-            Log.error("Could not get host string from webid URL")
-            return nil
-        }
-        
-        guard let hostURL = URL(string: "https://" + hostString) else {
-            Log.error("Could not create hostURL from host string")
-            return nil
-        }
-        
-        creds.hostURL = hostURL
+        creds.accountId = accountId
+        creds.serverParameters = serverParameters
+        creds.accessToken = serverParameters.accessToken
 
         return creds
     }
@@ -168,12 +154,12 @@ public class SolidCreds : Account {
             return nil
         }
     
-        let jsonCoding:JsonCoding
+        let params:SolidCredsParams
         
         do {
-            jsonCoding = try JSONDecoder().decode(JsonCoding.self, from: jsonData)
+            params = try JSONDecoder().decode(SolidCredsParams.self, from: jsonData)
         } catch let error {
-            Log.error("Could not decode JsonCoding: \(error)")
+            Log.error("Could not decode SolidCredsParams: \(error)")
             return nil
         }
         
@@ -182,36 +168,33 @@ public class SolidCreds : Account {
         }
         
         result.accountCreationUser = user
-        
-        // Only owning users have access token's in creds. Sharing users have empty creds stored in the database.
-        
+                
         switch user {
         case .user(let user) where AccountScheme(.accountName(user.accountType))?.userType == .owning:
             fallthrough
         case .userId:
-            result.accessToken = jsonCoding.accessToken
+            break
             
         default:
             // Sharing users not allowed.
             assert(false)
         }
         
-        result.codeParameters = jsonCoding.codeParameters
-        result.refreshToken = jsonCoding.refreshToken
-        result.accessToken = jsonCoding.accessToken
-        result.hostURL = jsonCoding.hostURL
+        result.serverParameters = params.serverParameters
+        result.accessToken = params.accessToken
+        result.accountId = params.accountId
         
         return result
     }
     
     public func toJSON() -> String? {
-        let jsonCoding = JsonCoding(accessToken: accessToken, refreshToken: refreshToken, codeParameters: codeParameters, hostURL: hostURL)
+        let params = SolidCredsParams(accessToken: accessToken, serverParameters: serverParameters, accountId: accountId, refreshToken: refreshToken)
         
         let data: Data
         do {
-            data = try JSONEncoder().encode(jsonCoding)
+            data = try JSONEncoder().encode(params)
         } catch let error {
-            Log.error("Failed encoding JsonCoding: \(error)")
+            Log.error("Failed encoding SolidCredsParams: \(error)")
             return nil
         }
 
@@ -219,120 +202,55 @@ public class SolidCreds : Account {
     }
         
     public func needToGenerateTokens(dbCreds:Account? = nil) -> Bool {
-        var result = codeParameters?.code != nil
-            
-        // If no dbCreds, then we generate tokens.
-        if let dbCreds = dbCreds {
-            if let dbSolidCreds = dbCreds as? SolidCreds {
-                result = result && codeParameters?.code != dbSolidCreds.codeParameters?.code
-            }
-            else {
-                Log.error("Did not get SolidCreds as dbCreds!")
-            }
-        }
-        
-        Log.debug("needToGenerateTokens: \(result); code: \(String(describing: codeParameters?.code))")
-        return result
+        // The server doesn't get the authorization code; no need to generate tokens.
+        return false
     }
     
-    // Use the code to generate a refresh and access token if there is one.
-    // This depends on `codeParameters`. And on `jwk` and `configuration`.
+    // A no-op. We already have a refresh token.
     public func generateTokens(completion:@escaping (Swift.Error?)->()) {
-        guard let codeParameters = codeParameters else {
-            completion(SolidCredsError.noCodeParameters)
-            return
-        }
-        
-        guard let configuration = configuration else {
-            completion(SolidCredsError.noConfiguration)
-            return
-        }
-
-        guard let jwk = jwk else {
-            completion(SolidCredsError.noJWK)
-            return
-        }
-        
-        tokenRequest = TokenRequest(requestType: .code(codeParameters), jwk: jwk, privateKey: configuration.privateKey)
-        tokenRequest.send(queue: .global()) { [weak self] result in
-            guard let self = self else {
-                completion(SolidCredsError.noSelf)
-                return
-            }
-
-            switch result {
-            case .failure(let error):
-                completion(error)
-                
-            case .success(let response):
-                guard let accessToken = response.access_token,
-                    let refreshToken = response.refresh_token else {
-                    completion(SolidCredsError.failedTokenRequest)
-                    return
-                }
-                
-                self.accessToken = accessToken
-                self.refreshToken = refreshToken
-                
-                guard let delegate = self.delegate else {
-                    Log.warning("No SolidCreds delegate.")
-                    completion(nil)
-                    return
-                }
-                
-                guard delegate.saveToDatabase(account: self) else {
-                    completion(SolidCredsError.errorSavingCredsToDatabase)
-                    return
-                }
-                
-                completion(nil)
-            }
-        }
+        completion(nil)
     }
     
     public func merge(withNewer newerAccount:Account) {
         assert(newerAccount is SolidCreds, "Wrong other type of creds!")
         let newerCreds = newerAccount as! SolidCreds
         
-        if newerCreds.refreshToken != nil {
-            self.refreshToken = newerCreds.refreshToken
+        if newerCreds.serverParameters != nil {
+            self.serverParameters = newerCreds.serverParameters
         }
         
-        if newerCreds.codeParameters != nil {
-            self.codeParameters = newerCreds.codeParameters
+        if newerCreds.accessToken != nil {
+            self.accessToken = newerCreds.accessToken
         }
-        
-        self.accessToken = newerCreds.accessToken
     }
     
     // Use the refresh token to generate a new access token.
     // If error is nil when the completion handler is called, then the accessToken of this object has been refreshed. Uses delegate, if one is defined, to save refreshed creds to database.
-    // This depends on `codeParameters`, and `refreshToken`. And on `jwk` and `configuration`.
+    // This depends on `serverParameters`, `jwk`, and `configuration`.
     func refresh(completion:@escaping (Swift.Error?)->()) {
-        guard let refreshToken = refreshToken else {
-            completion(SolidCredsError.noRefreshToken)
+        guard let serverParameters = serverParameters else {
+            completion(SolidCredsError.noServerParameters)
             return
         }
         
-        guard let codeParameters = codeParameters else {
-            completion(SolidCredsError.noCodeParameters)
-            return
-        }
-        
-        guard let jwk = jwk else {
-            completion(SolidCredsError.noJWK)
-            return
-        }
-        
-        guard let configuration = configuration else {
+        guard let configuration = configuration,
+            let jwk = jwk else {
             completion(SolidCredsError.noConfiguration)
             return
         }
-
-        let refreshParams = RefreshParameters(tokenEndpoint: codeParameters.tokenEndpoint, refreshToken: refreshToken, clientId: codeParameters.clientId)
         
-        tokenRequest = TokenRequest(requestType: .refresh(refreshParams), jwk: jwk, privateKey: configuration.privateKey)
-        tokenRequest.send(queue: .global()) { result in
+        var refreshParameters = serverParameters.refresh
+        
+        if let refreshToken = refreshToken  {
+            refreshParameters = RefreshParameters(tokenEndpoint: refreshParameters.tokenEndpoint, refreshToken: refreshToken, clientId: refreshParameters.clientId, clientSecret: refreshParameters.clientSecret, authenticationMethod: refreshParameters.authenticationMethod)
+        }
+
+        let signingKeys = TokenRequest<JWK_RSA>.SigningKeys(jwk: jwk, privateKey: configuration.privateKey)
+        
+        tokenRequest = TokenRequest(requestType: .refresh(refreshParameters), signingKeys: signingKeys)
+        tokenRequest.send(queue: .global()) { [weak self] result in
+            guard let self = self else { return }
+
             switch result {
             case .failure(let error):
                 completion(error)
@@ -344,6 +262,7 @@ public class SolidCreds : Account {
                 }
                 
                 self.accessToken = accessToken
+                self.refreshToken = response.refresh_token
 
                 guard let delegate = self.delegate else {
                     Log.warning("No SolidCreds delegate.")

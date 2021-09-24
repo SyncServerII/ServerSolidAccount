@@ -10,6 +10,7 @@ import XCTest
 import HeliumLogger
 import ServerShared
 import ServerAccount
+import LoggerAPI
 
 // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests
 

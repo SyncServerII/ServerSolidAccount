@@ -14,7 +14,6 @@ import HeliumLogger
 // swift test --enable-test-discovery --filter ServerSolidAccountTests.AuthenticationTests/testRefresh
 
 class AuthenticationTests: Common {    
-    // To test this, you need recent (unused?) codeParametersBase64. I think this invalidates the current refresh token.
     func testGenerateTokens() {
         guard let solidCreds = solidCreds else {
             XCTFail()
@@ -24,14 +23,7 @@ class AuthenticationTests: Common {
         let exp = expectation(description: "exp")
 
         solidCreds.generateTokens { error in
-            if let error = error {
-                XCTFail("\(error)")
-                exp.fulfill()
-                return
-            }
-            
-            XCTAssert(solidCreds.refreshToken != nil)
-            XCTAssert(solidCreds.accessToken != nil)
+            XCTAssert(error == nil)
             exp.fulfill()
         }
         

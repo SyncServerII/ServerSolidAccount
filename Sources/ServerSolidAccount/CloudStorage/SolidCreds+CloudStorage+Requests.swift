@@ -29,6 +29,8 @@ enum Header: String {
     case link = "Link" // Upper case "L" because response headers have it this way.
     case host
     case accept
+    
+    // At least in the NSS for PUT requests, this wasn't implemented when I tried it: https://github.com/solid/node-solid-server/issues/1431
     case ifNoneMatch = "If-None-Match"
 }
 
@@ -84,7 +86,7 @@ extension SolidCreds {
         case noConfiguration
         case noAccessToken
         case headersAlreadyHave(Header)
-        case noHostURL
+        case noStorageIRI
         case couldNotGetURLHost
         case failedToRefreshAccessToken(Error)
     }
@@ -159,17 +161,17 @@ extension SolidCreds {
     }
     
     // The headers must not include authorization, dpop or host: That will cause the request to fail.
-    // Depends on `hostURL`.
+    // Depends on `serverParameters`.
     // Parameters:
-    //  - path: appended to the hostURL, if given.
+    //  - path: appended to the sstorageIRI, if given.
     //  - httpMethod: The HTTP method.
     //  - body: Body data for outgoing request. Typically only used for POST's.
     //  - headers: HTTP request headers.
     //  - accessTokenAutoRefresh: Whether or not to automatically refresh the access token if we get a http status 401. A refresh is only tried once. Callers typically should just use the default.
     func request(path: String? = nil, httpMethod: HttpMethod, body: Data? = nil, headers: [Header: String], accessTokenAutoRefresh: Bool = true, completion: @escaping (RequestResult) -> ()) {
 
-        guard var requestURL = hostURL else {
-            completion(.failure(Failure(RequestError.noHostURL)))
+        guard var requestURL = serverParameters?.storageIRI else {
+            completion(.failure(Failure(RequestError.noStorageIRI)))
             return
         }
         
