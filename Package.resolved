@@ -57,7 +57,7 @@
       },
       {
         "package": "HeliumLogger",
-        "repositoryURL": "https://github.com/IBM-Swift/HeliumLogger.git",
+        "repositoryURL": "https://github.com/Kitura/HeliumLogger",
         "state": {
           "branch": null,
           "revision": "55fd2f0b70793017acee853c53cfcf8da0bd8d8d",
@@ -71,15 +71,6 @@
           "branch": null,
           "revision": "7a9a04df93e71de10fa2e8d6e9430dd0a7924643",
           "version": "4.2.4"
-        }
-      },
-      {
-        "package": "Kitura",
-        "repositoryURL": "https://github.com/Kitura/Kitura.git",
-        "state": {
-          "branch": null,
-          "revision": "daf6479097469a0c1fe64755db6e23f788a3ec29",
-          "version": "2.9.200"
         }
       },
       {
@@ -168,8 +159,17 @@
         "repositoryURL": "https://github.com/crspybits/SolidAuthSwift.git",
         "state": {
           "branch": null,
-          "revision": "420c1f1dd5ea0180f2819cd1e8769d167bb5a0d7",
-          "version": "0.0.20"
+          "revision": "94c611ec89940568b8b8e58010d98029dda8c017",
+          "version": "0.0.21"
+        }
+      },
+      {
+        "package": "SolidResourcesSwift",
+        "repositoryURL": "https://github.com/crspybits/SolidResourcesSwift.git",
+        "state": {
+          "branch": null,
+          "revision": "fe17f8644a7dd9527fe6a134ef3e6e3b4322b8c9",
+          "version": "0.0.1"
         }
       },
       {

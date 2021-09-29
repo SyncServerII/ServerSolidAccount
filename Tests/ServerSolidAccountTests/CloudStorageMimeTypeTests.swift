@@ -28,7 +28,7 @@ class CloudStorageMimeTypeTests: Common {
     }
 
     func uploadAndDownload(mimeType: MimeType, url: URL) throws {
-        solidCreds = try refreshCreds()
+        try refreshCreds()
         
         let exp = expectation(description: "exp")
         
@@ -45,11 +45,21 @@ class CloudStorageMimeTypeTests: Common {
                     case .success(data: let data, checkSum: _):
                         XCTAssert(uploadData == data)
                         
+                        self.solidCreds.deleteFile(cloudFileName: fileName, options: options) { result in
+                            switch result {
+                            case .success:
+                                break
+                            default:
+                                XCTFail()
+                            }
+                            
+                            exp.fulfill()
+                        }
+                        
                     default:
                         XCTFail()
+                        exp.fulfill()
                     }
-                    
-                    exp.fulfill()
                 }
                 
             default:
@@ -58,7 +68,7 @@ class CloudStorageMimeTypeTests: Common {
             }
         }
         
-        waitForExpectations(timeout: 20, handler: nil)
+        waitForExpectations(timeout: 30, handler: nil)
     }
 
     // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageMimeTypeTests/testUploadAndDownloadJPEG

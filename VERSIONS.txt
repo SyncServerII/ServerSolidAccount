@@ -1,8 +1,9 @@
 ServerSolidAccount
-
-Version 0.0.5
+    
+Version 0.0.5 (9/28/21)
     * Working on test cases. Encountered issue: https://github.com/solid/node-solid-server/issues/1612
     * Update to latest SolidAuthSwift package.
+    * Switched over to using https://github.com/crspybits/SolidResourcesSwift.git
     
 Version 0.0.4 (8/21/21)
     * Basic code for CloudStorage support in place.

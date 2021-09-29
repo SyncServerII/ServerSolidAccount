@@ -16,6 +16,7 @@ let package = Package(
         .package(url: "https://github.com/IBM-Swift/Kitura-Credentials.git", from: "2.5.0"),
         .package(url: "https://github.com/crspybits/SolidAuthSwift.git", from: "0.0.2"),
         .package(url: "https://github.com/SyncServerII/ServerShared.git", from: "0.9.0"),
+        .package(url: "https://github.com/crspybits/SolidResourcesSwift.git", from: "0.0.1"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -25,6 +26,7 @@ let package = Package(
             dependencies: [
                 "ServerAccount",
                 "ServerShared",
+                "SolidResourcesSwift",
                 .product(name: "Credentials", package: "Kitura-Credentials"),
                 .product(name: "SolidAuthSwiftTools", package: "SolidAuthSwift"),
             ]),

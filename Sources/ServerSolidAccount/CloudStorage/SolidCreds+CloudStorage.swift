@@ -9,16 +9,32 @@ import LoggerAPI
 import Foundation
 import ServerShared
 import ServerAccount
+import SolidResourcesSwift
 
 enum SolidCredsCloudStorageError: Error {
     case noOptions
     case cannotConvertMimeType
 }
 
+extension SolidResourcesSwift.DownloadResult {
+    func toServerAccount() -> ServerAccount.DownloadResult {
+        switch self {
+        case .success(data: let data, attributes: _):
+            // I don't have a check sum yet with Solid: https://forum.solidproject.org/t/checksum-for-file-resource-stored-in-solid/4606
+            return .success(data: data, checkSum: "")
+            
+        case .failure(let error):
+            return .failure(error)
+            
+        case .fileNotFound:
+            return .fileNotFound
+        }
+    }
+}
+
 extension SolidCreds : CloudStorage {
     // On success, String in result gives checksum of file on server.
     // Returns .failure(CloudStorageError.alreadyUploaded) in completion if the named file already exists.
-    // I don't have a check sum yet with this: https://forum.solidproject.org/t/checksum-for-file-resource-stored-in-solid/4606
     public func uploadFile(cloudFileName:String, data:Data, options:CloudStorageFileNameOptions?,
         completion:@escaping (Result<String>)->()) {
 
@@ -45,7 +61,7 @@ extension SolidCreds : CloudStorage {
                 completion(.failure(CloudStorageError.alreadyUploaded))
                 
             case .notFound:
-                self.uploadFile(named: cloudFileName, inDirectory: folder, data: data, mimeType: mimeType) { error in
+                self.uploadFile(named: cloudFileName, inDirectory: folder, data: data, mimeType: mimeType.rawValue) { error in
                     if let error = error {
                         completion(.failure(error))
                         return
@@ -60,7 +76,7 @@ extension SolidCreds : CloudStorage {
         }
     }
 
-    public func downloadFile(cloudFileName:String, options:CloudStorageFileNameOptions?, completion:@escaping (DownloadResult)->()) {
+    public func downloadFile(cloudFileName:String, options:CloudStorageFileNameOptions?, completion:@escaping (ServerAccount.DownloadResult)->()) {
 
         guard let options = options,
             let folder = options.cloudFolderName else {
@@ -69,7 +85,7 @@ extension SolidCreds : CloudStorage {
         }
         
         downloadFile(named: cloudFileName, inDirectory: folder) { result in
-            completion(result)
+            completion(result.toServerAccount())
         }
     }
     

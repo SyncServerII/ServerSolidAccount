@@ -14,6 +14,7 @@ import Kitura
 import LoggerAPI
 import ServerAccount
 import SolidAuthSwiftTools
+import SolidResourcesSwift
 
 // Credentials basis for making Solid Pod endpoint calls.
 
@@ -29,7 +30,7 @@ public protocol SolidCredsConfigurable {
     var solidCredsConfiguration: SolidCredsConfiguration? { get }
 }
 
-public class SolidCreds : Account {
+public class SolidCreds : Account, ResourceCredentials {
     enum SolidCredsError: Swift.Error {
         case noServerParameters
         case failedTokenRequest
@@ -42,8 +43,8 @@ public class SolidCreds : Account {
         case noRefreshToken
     }
     
-    private var tokenRequest:TokenRequest<JWK_RSA>!
-    var jwk: JWK_RSA!
+    public var resourceConfigurable: ResourceConfigurable!
+    public var tokenRequest:TokenRequest<JWK_RSA>?
     
     // The following keys are for conversion <-> JSON (e.g., to store this into a database).
 
@@ -78,6 +79,7 @@ public class SolidCreds : Account {
     weak var delegate:AccountDelegate?
     public var accountCreationUser:AccountCreationUser?
     var configuration:SolidCredsConfiguration!
+    var jwk: JWK_RSA!
     
     required public init?(configuration: Any? = nil, delegate:AccountDelegate?) {
         self.delegate = delegate
@@ -144,6 +146,14 @@ public class SolidCreds : Account {
         creds.accountId = accountId
         creds.serverParameters = serverParameters
         creds.accessToken = serverParameters.accessToken
+        
+        guard let jwk = creds.jwk,
+            let privateKey = creds.configuration?.privateKey,
+            let storageIRI = serverParameters.storageIRI else {
+            return nil
+        }
+
+        creds.resourceConfigurable = ResourceConfiguration(jwk: jwk, privateKey: privateKey, clientId: serverParameters.refresh.clientId, clientSecret: serverParameters.refresh.clientSecret, storageIRI: storageIRI, tokenEndpoint: serverParameters.refresh.tokenEndpoint, authenticationMethod: serverParameters.refresh.authenticationMethod, refreshDelegate: creds)
 
         return creds
     }
@@ -223,60 +233,20 @@ public class SolidCreds : Account {
             self.accessToken = newerCreds.accessToken
         }
     }
-    
-    // Use the refresh token to generate a new access token.
-    // If error is nil when the completion handler is called, then the accessToken of this object has been refreshed. Uses delegate, if one is defined, to save refreshed creds to database.
-    // This depends on `serverParameters`, `jwk`, and `configuration`.
-    func refresh(completion:@escaping (Swift.Error?)->()) {
-        guard let serverParameters = serverParameters else {
-            completion(SolidCredsError.noServerParameters)
+}
+
+extension SolidCreds: RefreshDelegate {
+    public func accessTokenRefreshed(_ credentials: ResourceCredentials, completion:(Bool)->()) {
+        guard let delegate = self.delegate else {
+            Log.warning("No SolidCreds delegate.")
+            completion(true)
             return
         }
         
-        guard let configuration = configuration,
-            let jwk = jwk else {
-            completion(SolidCredsError.noConfiguration)
+        guard delegate.saveToDatabase(account: self) else {
+            Log.error("Failed saving creds to database.")
+            completion(false)
             return
-        }
-        
-        var refreshParameters = serverParameters.refresh
-        
-        if let refreshToken = refreshToken  {
-            refreshParameters = RefreshParameters(tokenEndpoint: refreshParameters.tokenEndpoint, refreshToken: refreshToken, clientId: refreshParameters.clientId, clientSecret: refreshParameters.clientSecret, authenticationMethod: refreshParameters.authenticationMethod)
-        }
-
-        let signingKeys = TokenRequest<JWK_RSA>.SigningKeys(jwk: jwk, privateKey: configuration.privateKey)
-        
-        tokenRequest = TokenRequest(requestType: .refresh(refreshParameters), signingKeys: signingKeys)
-        tokenRequest.send(queue: .global()) { [weak self] result in
-            guard let self = self else { return }
-
-            switch result {
-            case .failure(let error):
-                completion(error)
-                
-            case .success(let response):
-                guard let accessToken = response.access_token else {
-                    completion(SolidCredsError.noAccessToken)
-                    return
-                }
-                
-                self.accessToken = accessToken
-                self.refreshToken = response.refresh_token
-
-                guard let delegate = self.delegate else {
-                    Log.warning("No SolidCreds delegate.")
-                    completion(nil)
-                    return
-                }
-                
-                guard delegate.saveToDatabase(account: self) else {
-                    completion(SolidCredsError.errorSavingCredsToDatabase)
-                    return
-                }
-                
-                completion(nil)
-            }
         }
     }
 }

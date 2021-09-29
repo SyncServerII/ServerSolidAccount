@@ -17,7 +17,7 @@ import LoggerAPI
 class CloudStorageTests: Common {
     // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testUploadFile_NewDirectory
     func testUploadFile_NewDirectory() throws {
-        solidCreds = try refreshCreds()
+        try refreshCreds()
         
         let exp = expectation(description: "exp")
         
@@ -66,7 +66,7 @@ class CloudStorageTests: Common {
 
     // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testUploadFile_NewFile_ExistingDirectory
     func testUploadFile_NewFile_ExistingDirectory() throws {
-        solidCreds = try refreshCreds()
+        try refreshCreds()
         
         let exp = expectation(description: "exp")
                 
@@ -105,7 +105,7 @@ class CloudStorageTests: Common {
 
     // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testUploadFile_ExistingFile_ExistingDirectory
     func testUploadFile_ExistingFile_ExistingDirectory() throws {
-        solidCreds = try refreshCreds()
+        try refreshCreds()
         
         let exp = expectation(description: "exp")
                 
@@ -147,14 +147,14 @@ class CloudStorageTests: Common {
 
     // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testDownloadFile_FileExists
     func testDownloadFile_FileExists() throws {
-        solidCreds = try refreshCreds()
+        try refreshCreds()
 
         let mimeType: MimeType = .text
         let fileName = existingFile
         
         let options = CloudStorageFileNameOptions(cloudFolderName:existingDirectory, mimeType: mimeType.rawValue)
 
-        guard let uploadData = "Hello, World v2!".data(using: .utf8) else {
+        guard let uploadData = "Hello, World!".data(using: .utf8) else {
             XCTFail()
             return
         }
@@ -178,7 +178,7 @@ class CloudStorageTests: Common {
 
     // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testDownloadFile_FileDoesNotExist
     func testDownloadFile_FileDoesNotExist() throws {
-        solidCreds = try refreshCreds()
+        try refreshCreds()
 
         let mimeType: MimeType = .text
         
@@ -203,7 +203,7 @@ class CloudStorageTests: Common {
 
     // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testDeleteFile_FileExists
     func testDeleteFile_FileExists() throws {
-        solidCreds = try refreshCreds()
+        try refreshCreds()
 
         let exp = expectation(description: "exp")
         
@@ -218,7 +218,7 @@ class CloudStorageTests: Common {
             return
         }
 
-        solidCreds.uploadFile(named: fileName, inDirectory: existingDirectory, data:uploadData, mimeType: mimeType) { error in
+        solidCreds.uploadFile(named: fileName, inDirectory: existingDirectory, data:uploadData, mimeType: mimeType.rawValue) { error in
             
             guard error == nil else {
                 XCTFail()
@@ -242,7 +242,7 @@ class CloudStorageTests: Common {
 
     // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testDeleteFile_FileDoesNotExist
     func testDeleteFile_FileDoesNotExist() throws {
-        solidCreds = try refreshCreds()
+        try refreshCreds()
 
         let mimeType: MimeType = .text
         let options = CloudStorageFileNameOptions(cloudFolderName:existingDirectory, mimeType: mimeType.rawValue)
@@ -265,7 +265,7 @@ class CloudStorageTests: Common {
 
     // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testLookupFile_FileExists
     func testLookupFile_FileExists() throws {
-        solidCreds = try refreshCreds()
+        try refreshCreds()
 
         let mimeType: MimeType = .text
         let options = CloudStorageFileNameOptions(cloudFolderName:existingDirectory, mimeType: mimeType.rawValue)
@@ -288,7 +288,7 @@ class CloudStorageTests: Common {
 
     // swift test --enable-test-discovery --filter ServerSolidAccountTests.CloudStorageTests/testLookupFile_FileDoesNotExist
     func testLookupFile_FileDoesNotExist() throws {
-        solidCreds = try refreshCreds()
+        try refreshCreds()
 
         let mimeType: MimeType = .text
         let options = CloudStorageFileNameOptions(cloudFolderName:existingDirectory, mimeType: mimeType.rawValue)
